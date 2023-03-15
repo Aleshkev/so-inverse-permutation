@@ -18,6 +18,7 @@ static bool check_inverse_permutation(size_t n, int const *p1, int const *p2) {
   return true;
 }
 
+
 int main(int argc, char *argv[]) {
   size_t n, i, j;
   int *p = malloc(TESTS_NO * sizeof(int)), *q = malloc(TESTS_NO * sizeof(int));

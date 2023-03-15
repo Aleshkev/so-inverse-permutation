@@ -13,75 +13,62 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint-gcc.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define lsb ((uint32_t)1 << 31)
 
-#define is_tagged(x) ((x) & lsb)
+#define is_tagged(x) ((x)&lsb)
 #define tagged(x) ((x) | lsb)
-#define untagged(x) ((x) << 1 >> 1)
-
-//#define tag(X) ((X) |= lsb)
-//#define untagged(X) (((X) << 1) >> 1)
-//#define untag(X) ((X) <<= 1, (X) >>= 1)
-//#define tagged(X) ((X) << 1 >> 1)
-
-#define swap(A, B) { A ^= B; B ^= A; A ^= B; }
+#define untagged(x) ((x) & (lsb - 1))
 
 bool inverse_permutation(size_t n, int *p) {
+  //   printf("using C version\n");
+
   if (n == 0 || n > INT_MAX) {
     return false;
   }
 
-  // A permutation has integers in range [0, n - 1]
+  // We will store an additional bit of information in the most significant bit.
+  uint32_t *v = (void *)p;
+
+  // If a number in the input is negative, this bit will be set. So we do a
+  // quick check if this is the case (the permutation is then incorrect).
   for (size_t i = 0; i < n; ++i) {
-    if (p[i] < 0 || p[i] >= n) {
+    if (is_tagged(v[i])) {
       return false;
     }
   }
 
+  bool ans = true;
 
-
-  // We will store an additional bit of information in the most significant bit.
-  // This is not a sign bit, so to be less confusing let's just cast this to
-  // unsigned.
-  uint32_t *v = (void *)p;
-
-  // Check if no numbers appear more than once.
+  // Detect duplicates, ensure numbers are smaller than n.
   // If v[i] = x, we tag v[x] to remember that x occurred.
   for (size_t i = 0; i < n; ++i) {
     uint32_t x = untagged(v[i]);
-    if (is_tagged(v[x])) {
-
-      // Undo the changes
-      for (size_t j = 0; j < i; ++j) {
-        v[j] = untagged(v[j]);
-        v[v[j]] = untagged(v[v[j]]);
-      }
-
-      return false;
+    if (x >= n || is_tagged(v[x])) {
+      ans = false;
+      goto undo_and_return;
     }
 
     v[x] = tagged(v[x]);
   }
 
+  // Undo the tagging.
   for (size_t i = 0; i < n; ++i) {
     v[i] = untagged(v[i]);
-    v[v[i]] = untagged(v[v[i]]);
   }
 
-  // Now we have a correct permutation.
+  // The permutation is correct from now on.
 
   for (size_t i = 0; i < n; ++i) {
     if (is_tagged(v[i])) {
       continue;
     }
 
-    // Now we reverse one cycle.
-
+    // Reverse one cycle.
     size_t prev = i;
-    for (size_t j = v[i]; j != i; ) {
+    for (size_t j = v[i]; j != i;) {
       size_t next = v[j];
       v[j] = tagged(prev);
       prev = j;
@@ -90,9 +77,12 @@ bool inverse_permutation(size_t n, int *p) {
     v[i] = tagged(prev);
   }
 
-  for(size_t i = 0; i < n; ++i) {
+undo_and_return:
+
+  // Undo the tagging.
+  for (size_t i = 0; i < n; ++i) {
     v[i] = untagged(v[i]);
   }
 
-  return true;
+  return ans;
 }

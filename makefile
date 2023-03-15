@@ -1,6 +1,6 @@
 .PHONY: all test clean
 
-all: example example_c
+all: example example_c test test_c
 
 gcc = gcc -c -Wall -Wextra -std=c17 -g -Og
 
