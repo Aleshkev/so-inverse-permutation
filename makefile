@@ -19,11 +19,14 @@ example: inverse_permutation.o example.o
 example_c: inverse_permutation_c.c example.o
 	gcc -g -z noexecstack -o $@ $^
 
-test: example
-	./example
+test.o: test.c
+	$(gcc) -o $@ $<
 
-test_c: example_c
-	./example_c
+test: inverse_permutation.o test.o
+	gcc -g -z noexecstack -o $@ $^
+
+test_c: inverse_permutation_c.o test.o
+	gcc -g -z noexecstack -o $@ $^
 
 clean:
 	rm -rf *.o ./example
