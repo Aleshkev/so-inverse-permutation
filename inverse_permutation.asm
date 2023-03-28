@@ -8,14 +8,13 @@ inverse_permutation:
 ;  | rsi -> rdx | *p
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+        mov     rdx, rsi
+
 
 ;'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Check if 0 < n <= int_max + 1, return false if not.
-;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ;
-;  Leaves:
-;    rcx == n - 1
-;    rdx == p, rsi != p
+;  Leaves rcx == n - 1 to use as a counter later.
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 check_n:
@@ -30,8 +29,6 @@ check_n:
         ret
 .skip_return_false:
 
-        ; rdx = p
-        mov     rdx, rsi
 
 ;'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Check if all numbers are between 0 and n - 1, return false if not.
@@ -83,10 +80,6 @@ check_range:
 ;  | rcx | j     | the index of the current element in the rollback
 ;  | r9  | &p[x]
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-;
-;  Leaves:
-;    rax == as before, because it terminates if it's changed
-;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 
 check_permutation:
@@ -112,6 +105,8 @@ check_permutation:
                 ; The permutation is incorrect. Undo the tagging and return.
 
                 ; for (j = n; j-- > 0;)
+                ; rcx == n - 1 because check_n sets it.
+                ; We terminate anyway, so we can set anything now.
                 .inner:
                         ; if (p[j] < 0)
                         mov     eax, dword [rdx + rcx*4]
@@ -144,17 +139,13 @@ check_permutation:
 ;  Variable:
 ;  | rcx | i | the counter
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-;
-;  Leaves:
-;    rcx != n -1
-;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 simple_untag:
 
 ; for(i = n; i-- > 0;)
 .loop:
         ; p[i] = ~p[i]
-        not     dword [rdx + rcx * 4]
+        not     dword [rdx + rcx*4]
 
         ; continue
         sub     rcx, 1
@@ -211,7 +202,7 @@ find_inverse:
 
                 ; next = p[current]
                 movsx   rdi, esi
-                lea     rdi, [rdx+rdi*4]  ; rdi = &p[current]
+                lea     rdi, [rdx + rdi*4]  ; rdi = &p[current]
                 mov     r8d, dword [rdi]
 
                 ; p[current] = ~previous; previous = nil
