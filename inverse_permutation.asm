@@ -4,47 +4,64 @@ inverse_permutation:
 
 ;'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Function input:
-;  | rdx | *p
-;  | rcx | n
+;  | rdi        | n
+;  | rsi -> rdx | *p
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 
 ;'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Check if 0 < n <= int_max + 1, return false if not.
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+;
+;  Leaves:
+;    rcx == n - 1
+;    rdx == p, rsi != p
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 check_n:
-        lea     rcx, [rdi - 1]
-        mov     rdx, rsi
-        xor     eax, eax
+        ; test = ((n - 1) < int_max)
+        lea     rcx, [rdi - 1]  ; rcx = n - 1
         cmp     rcx, 0x7fffffff  ; int_max
 
-        ;
+        ; if (!test) return false
         jbe     .skip_return_false
+.return_false:
+        xor     eax, eax
+        ret
+.skip_return_false:
 
-        .return_false:
-                xor     eax, eax
-                ret
-        .skip_return_false:
-
+        ; rdx = p
+        mov     rdx, rsi
 
 ;'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Check if all numbers are between 0 and n - 1, return false if not.
+;
+;  It is important to do this 0 --> n.
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+;
+;  Leaves:
+;    rax == n
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 check_range:
 
+; for (i = 0; i < n; ++i)
+        xor     eax, eax
 .loop:
         movsx   rsi, dword [rdx + rax * 4]
+
+        ; if (p[i] < 0) return false
         test    esi, esi
         js      check_n.return_false
+
+        ; if (p[i] > n) return false
         cmp     rsi, rdi
         jnb     check_n.return_false
+
+        ; continue
         inc     rax
         cmp     rdi, rax
         jne     .loop
-
-        mov     rdi, rcx
 
 ;''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ;  Check if the input is a correct permutation.
@@ -61,18 +78,23 @@ check_range:
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ;
 ;  Variables
-;  | rax | i     | the index of the current element
+;  | rdi | i     | the index of the current element
 ;  | r8d | x     | p[i]
 ;  | rcx | j     | the index of the current element in the rollback
 ;  | r9  | &p[x]
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ;
+;  Leaves:
+;    rax == as before, because it terminates if it's changed
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 
 check_permutation:
-
 ; for (i = n; i-- > 0;)
+        mov     rdi, rcx
 .outer:
         ; x = p[i]
-        mov     r8d, dword [rdx + rdi * 4]
+        mov     r8d, dword [rdx + rdi*4]
 
         ; if (x < 0) x = ~x
         mov     esi, r8d
@@ -81,7 +103,7 @@ check_permutation:
 
         ; &p[x]
         movsx   rsi, esi
-        lea     r9, [rdx + rsi * 4]
+        lea     r9, [rdx + rsi*4]
 
         ; if (p[x] < 0)
         mov     esi, dword [r9]
@@ -122,6 +144,10 @@ check_permutation:
 ;  Variable:
 ;  | rcx | i | the counter
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+;
+;  Leaves:
+;    rcx != n -1
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 simple_untag:
 
@@ -139,6 +165,13 @@ simple_untag:
 ;  Find inverse of the permutation.
 ;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ;
+;  We go from the end of the permutation; if an element was not visited, we
+;  traverse the cycle created by connecting each x to p[x], and update the
+;  array. Elements that have been set are tagged. At the end of each iteration,
+;  one element is untagged (we know its tag won't be queried because all
+;  elements in the cycle with this element have already been visited).
+;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+;
 ;  Variables:
 ;  | eax | start   | the start of the cycle
 ;  | esi | current | current element of the cycle
@@ -150,7 +183,6 @@ find_inverse:
 
 ; for (start = n - 1; start-- > 0;)
         dec     eax
-        ;   cdqe
 .loop:
         ; <condition>
         lea     ecx, [rax + 1]
@@ -179,7 +211,7 @@ find_inverse:
 
                 ; next = p[current]
                 movsx   rdi, esi
-                lea     rdi, [rdx+rdi*4]
+                lea     rdi, [rdx+rdi*4]  ; rdi = &p[current]
                 mov     r8d, dword [rdi]
 
                 ; p[current] = ~previous; previous = nil
