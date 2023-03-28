@@ -16,73 +16,54 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define lsb ((uint32_t)1 << 31)
-
-#define is_tagged(x) ((x)&lsb)
-#define tagged(x) ((x) | lsb)
-#define untagged(x) ((x) & (lsb - 1))
-
-bool inverse_permutation(size_t n, int *p) {
-  //   printf("using C version\n");
-
-  if (n == 0 || n > INT_MAX) {
+bool inverse_permutation(size_t n, int p[]) {
+  if (n == 0 || n > (size_t)INT_MAX + 1) {
     return false;
   }
 
-  // We will store an additional bit of information in the most significant bit.
-  uint32_t *v = (void *)p;
-
-  // If a number in the input is negative, this bit will be set. So we do a
-  // quick check if this is the case (the permutation is then incorrect).
   for (size_t i = 0; i < n; ++i) {
-    if (is_tagged(v[i])) {
+    if (p[i] < 0 || (size_t)p[i] >= n)
+      return false;
+  }
+
+  for (size_t i = n; i-- > 0;) {
+    int x = p[i];
+    if (x < 0)
+      x = ~x;
+    if (p[x] < 0) {
+      for (size_t j = n; j-- > 0;) {
+        if (p[j] < 0)
+          p[j] = ~p[j];
+      }
       return false;
     }
+    p[x] = ~p[x];
+  }
+  for (size_t i = n; i-- > 0;) {
+    p[i] = ~p[i];
   }
 
-  bool ans = true;
-
-  // Detect duplicates, ensure numbers are smaller than n.
-  // If v[i] = x, we tag v[x] to remember that x occurred.
-  for (size_t i = 0; i < n; ++i) {
-    uint32_t x = untagged(v[i]);
-    if (x >= n || is_tagged(v[x])) {
-      ans = false;
-      goto undo_and_return;
-    }
-
-    v[x] = tagged(v[x]);
-  }
-
-  // Undo the tagging.
-  for (size_t i = 0; i < n; ++i) {
-    v[i] = untagged(v[i]);
-  }
-
-  // The permutation is correct from now on.
-
-  for (size_t i = 0; i < n; ++i) {
-    if (is_tagged(v[i])) {
+  for (int32_t start = (int32_t)n; start-- > 0;) {
+    if (p[start] < 0) {
+      p[start] = ~p[start];
       continue;
     }
 
-    // Reverse one cycle.
-    size_t prev = i;
-    for (size_t j = v[i]; j != i;) {
-      size_t next = v[j];
-      v[j] = tagged(prev);
-      prev = j;
-      j = next;
+    // < 0 --> było ustawione
+
+    int previous = start;   // > 0
+    int current = p[start]; // > 0
+                            //    printf("%i ", start);
+    while (current != start) {
+      //      printf("%i ", current);
+      int next = p[current];
+      p[current] = ~previous;
+      previous = current;
+      current = next;
     }
-    v[i] = tagged(prev);
+    p[start] = previous;
+    //    printf("%i \n", start);
   }
 
-undo_and_return:
-
-  // Undo the tagging.
-  for (size_t i = 0; i < n; ++i) {
-    v[i] = untagged(v[i]);
-  }
-
-  return ans;
+  return true;
 }
